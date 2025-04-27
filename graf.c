@@ -75,29 +75,21 @@ Graf* wczytaj_graf_z_pliku(const char *nazwa_pliku) {
         return NULL;
     }
 
-    // Wczytanie grup wierzchołków
+    // Inicjalizacja grup wierzchołków i wskaźników grup jako NULL
+    graf->grupy_wierzcholkow = NULL;
+    graf->wskazniki_grupy = NULL;
+
+    // Próba wczytania grup wierzchołków i wskaźników grup (opcjonalne)
     int rozmiar_grup;
     graf->grupy_wierzcholkow = wczytaj_linie(plik, &rozmiar_grup);
-    if (!graf->grupy_wierzcholkow) {
-        printf("Błąd wczytywania grup wierzchołków.\n");
-        free(graf->wskazniki_wiersze);
-        free(graf->indeksy_wierzcholkow);
-        free(graf);
-        fclose(plik);
-        return NULL;
-    }
-
-    // Wczytanie wskaźników grup
-    int rozmiar_wskaznikow_grup;
-    graf->wskazniki_grupy = wczytaj_linie(plik, &rozmiar_wskaznikow_grup);
-    if (!graf->wskazniki_grupy) {
-        printf("Błąd wczytywania wskaźników grup.\n");
-        free(graf->grupy_wierzcholkow);
-        free(graf->wskazniki_wiersze);
-        free(graf->indeksy_wierzcholkow);
-        free(graf);
-        fclose(plik);
-        return NULL;
+    if (graf->grupy_wierzcholkow) {
+        int rozmiar_wskaznikow_grup;
+        graf->wskazniki_grupy = wczytaj_linie(plik, &rozmiar_wskaznikow_grup);
+        if (!graf->wskazniki_grupy) {
+            printf("Błąd wczytywania wskaźników grup.\n");
+            free(graf->grupy_wierzcholkow);
+            graf->grupy_wierzcholkow = NULL;
+        }
     }
 
     fclose(plik);
@@ -108,8 +100,12 @@ void zwolnij_graf(Graf *graf) {
     if (graf) {
         free(graf->indeksy_wierzcholkow);
         free(graf->wskazniki_wiersze);
-        free(graf->grupy_wierzcholkow);
-        free(graf->wskazniki_grupy);
+        if (graf->grupy_wierzcholkow) {
+            free(graf->grupy_wierzcholkow);
+        }
+        if (graf->wskazniki_grupy) {
+            free(graf->wskazniki_grupy);
+        }
         free(graf);
     }
 }

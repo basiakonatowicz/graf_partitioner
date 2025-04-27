@@ -42,39 +42,57 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    printf("Parametry wejściowe:\n");
+    printf("Plik wejściowy: %s\n", plik_wejsciowy);
+    printf("Plik wyjściowy: %s\n", plik_wyjscowy);
+    printf("Liczba części: %d\n", liczba_czesci);
+    printf("Margines: %.1f%%\n", margines);
+    printf("Zapis binarny: %s\n", zapis_binarny ? "tak" : "nie");
+
     // Wczytanie grafu
+    printf("\nWczytywanie grafu z pliku %s...\n", plik_wejsciowy);
     Graf *graf = wczytaj_graf_z_pliku(plik_wejsciowy);
     if (!graf) {
         printf("Błąd wczytywania grafu.\n");
         return 1;
     }
+    printf("Graf wczytany pomyślnie.\n");
 
     if (liczba_czesci > graf->liczba_wierzcholkow) {
-        printf("Liczba części (%d) większa niż liczba wierzchołków (%d).\n", liczba_czesci, graf->liczba_wierzcholkow);
+        printf("Liczba części (%d) większa niż liczba wierzchołków (%d).\n", 
+               liczba_czesci, graf->liczba_wierzcholkow);
         zwolnij_graf(graf);
         return 1;
     }
 
     // Podział grafu
+    printf("\nRozpoczynam podział grafu...\n");
     CzescGrafu *czesci = podziel_graf(graf, liczba_czesci, margines);
     if (!czesci) {
         printf("Błąd podziału grafu.\n");
         zwolnij_graf(graf);
         return 1;
     }
+    printf("Podział grafu zakończony pomyślnie.\n");
 
     // Obliczenie przeciętych krawędzi
+    printf("\nObliczanie przeciętych krawędzi...\n");
     int przeciete_krawedzie = oblicz_przeciete_krawedzie(graf, czesci, liczba_czesci);
+    printf("Liczba przeciętych krawędzi: %d\n", przeciete_krawedzie);
 
     // Zapis wyniku
+    printf("\nZapisywanie wyniku do pliku %s...\n", plik_wyjscowy);
     zapisz_wynik_do_pliku(plik_wyjscowy, czesci, liczba_czesci, przeciete_krawedzie, zapis_binarny);
+    printf("Wynik zapisany pomyślnie.\n");
 
     // Zwolnienie pamięci
+    printf("\nZwolnienie pamięci...\n");
     for (int i = 0; i < liczba_czesci; i++) {
         free(czesci[i].wierzcholki);
     }
     free(czesci);
     zwolnij_graf(graf);
+    printf("Pamięć zwolniona pomyślnie.\n");
 
     return 0;
 }

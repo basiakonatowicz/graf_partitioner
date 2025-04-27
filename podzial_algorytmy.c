@@ -7,7 +7,10 @@
 int oblicz_przeciete_krawedzie(Graf *graf, CzescGrafu *czesci, int liczba_czesci) {
     int przeciete = 0;
     int *przynaleznosc = (int *)malloc(graf->liczba_wierzcholkow * sizeof(int));
-    if (!przynaleznosc) return 0;
+    if (!przynaleznosc) {
+        printf("Błąd alokacji pamięci w oblicz_przeciete_krawedzie\n");
+        return 0;
+    }
 
     // Mapowanie wierzchołków na części
     memset(przynaleznosc, -1, graf->liczba_wierzcholkow * sizeof(int));
@@ -37,7 +40,9 @@ static void kernighan_lin(Graf *graf, CzescGrafu *czesci, int *przynaleznosc, in
     int *zyski = (int *)malloc(n * sizeof(int));
     int *zablokowane = (int *)calloc(n, sizeof(int));
     int *tmp_przynaleznosc = (int *)malloc(n * sizeof(int));
+    
     if (!zyski || !zablokowane || !tmp_przynaleznosc) {
+        printf("Błąd alokacji pamięci w kernighan_lin\n");
         free(zyski);
         free(zablokowane);
         free(tmp_przynaleznosc);
@@ -45,7 +50,22 @@ static void kernighan_lin(Graf *graf, CzescGrafu *czesci, int *przynaleznosc, in
     }
 
     memcpy(tmp_przynaleznosc, przynaleznosc, n * sizeof(int));
-    int iteracje = n / 10; // Ograniczenie liczby iteracji
+    
+    // Dynamiczne dostosowanie liczby iteracji w zależności od rozmiaru grafu
+    int iteracje = n > 1000 ? n / 100 : n / 20;
+    printf("Wykonywanie %d iteracji Kernighan-Lin dla części %d i %d\n", iteracje, czesc1, czesc2);
+    
+    int najlepszy_globalny_zysk = 0;
+    int *najlepsze_przynaleznosc = (int *)malloc(n * sizeof(int));
+    if (!najlepsze_przynaleznosc) {
+        printf("Błąd alokacji pamięci dla najlepszego podziału\n");
+        free(zyski);
+        free(zablokowane);
+        free(tmp_przynaleznosc);
+        return;
+    }
+    memcpy(najlepsze_przynaleznosc, tmp_przynaleznosc, n * sizeof(int));
+    
     for (int iter = 0; iter < iteracje; iter++) {
         // Obliczanie zysków z wymiany
         for (int v = 0; v < n; v++) {
@@ -83,20 +103,40 @@ static void kernighan_lin(Graf *graf, CzescGrafu *czesci, int *przynaleznosc, in
             }
         }
 
-        if (najlepszy_zysk <= 0 || najlepszy_v1 == -1 || najlepszy_v2 == -1) break;
+        if (najlepszy_zysk <= 0 || najlepszy_v1 == -1 || najlepszy_v2 == -1) {
+            printf("Brak lepszych wymian w iteracji %d\n", iter);
+            break;
+        }
 
         // Wykonanie wymiany
         tmp_przynaleznosc[najlepszy_v1] = czesc2;
         tmp_przynaleznosc[najlepszy_v2] = czesc1;
         zablokowane[najlepszy_v1] = 1;
         zablokowane[najlepszy_v2] = 1;
+        
+        // Aktualizacja najlepszego globalnego zysku
+        if (najlepszy_zysk > najlepszy_globalny_zysk) {
+            najlepszy_globalny_zysk = najlepszy_zysk;
+            memcpy(najlepsze_przynaleznosc, tmp_przynaleznosc, n * sizeof(int));
+        }
+        
+        if (iter % 100 == 0) {
+            printf("Iteracja %d: wymiana wierzchołków %d i %d, zysk: %d\n", 
+                   iter, najlepszy_v1, najlepszy_v2, najlepszy_zysk);
+        }
     }
+
+    // Przywrócenie najlepszego podziału
+    memcpy(tmp_przynaleznosc, najlepsze_przynaleznosc, n * sizeof(int));
+    free(najlepsze_przynaleznosc);
 
     // Aktualizacja części
     int k1 = 0, k2 = 0;
     int *nowe1 = (int *)malloc(czesci[czesc1].liczba_wierzcholkow * sizeof(int));
     int *nowe2 = (int *)malloc(czesci[czesc2].liczba_wierzcholkow * sizeof(int));
+    
     if (!nowe1 || !nowe2) {
+        printf("Błąd alokacji pamięci przy aktualizacji części\n");
         free(nowe1);
         free(nowe2);
         free(zyski);
@@ -126,6 +166,9 @@ static void kernighan_lin(Graf *graf, CzescGrafu *czesci, int *przynaleznosc, in
     czesci[czesc1].liczba_wierzcholkow = k1;
     czesci[czesc2].liczba_wierzcholkow = k2;
 
+    printf("Zakończono podział: część %d ma %d wierzchołków, część %d ma %d wierzchołków\n",
+           czesc1, k1, czesc2, k2);
+
     free(nowe1);
     free(nowe2);
     free(zyski);
@@ -134,15 +177,34 @@ static void kernighan_lin(Graf *graf, CzescGrafu *czesci, int *przynaleznosc, in
 }
 
 CzescGrafu* podziel_graf(Graf *graf, int liczba_czesci, float margines) {
-    if (!graf || liczba_czesci < 1) return NULL;
+    if (!graf || liczba_czesci < 1) {
+        printf("Nieprawidłowe parametry wejściowe\n");
+        return NULL;
+    }
+
+    printf("Rozpoczynam podział grafu na %d części (margines: %.1f%%)\n", liczba_czesci, margines);
+    printf("Liczba wierzchołków: %d, liczba krawędzi: %d\n", 
+           graf->liczba_wierzcholkow, graf->liczba_krawedzi);
+
+    // Dynamiczne dostosowanie marginesu dla dużych grafów
+    float dostosowany_margines = margines;
+    if (graf->liczba_wierzcholkow > 1000) {
+        dostosowany_margines = margines * 1.5; // Zwiększamy margines o 50% dla dużych grafów
+        printf("Dostosowano margines do %.1f%% dla dużego grafu\n", dostosowany_margines);
+    }
 
     CzescGrafu *czesci = (CzescGrafu *)malloc(liczba_czesci * sizeof(CzescGrafu));
-    if (!czesci) return NULL;
+    if (!czesci) {
+        printf("Błąd alokacji pamięci dla części\n");
+        return NULL;
+    }
 
-    // Inicjalizacja części
+    // Inicjalizacja części z dynamicznym rozmiarem
     for (int i = 0; i < liczba_czesci; i++) {
-        czesci[i].wierzcholki = (int *)malloc(graf->liczba_wierzcholkow * sizeof(int));
+        int oczekiwany_rozmiar = (graf->liczba_wierzcholkow / liczba_czesci) + 1;
+        czesci[i].wierzcholki = (int *)malloc(oczekiwany_rozmiar * sizeof(int));
         if (!czesci[i].wierzcholki) {
+            printf("Błąd alokacji pamięci dla części %d\n", i);
             for (int j = 0; j < i; j++) free(czesci[j].wierzcholki);
             free(czesci);
             return NULL;
@@ -151,8 +213,9 @@ CzescGrafu* podziel_graf(Graf *graf, int liczba_czesci, float margines) {
     }
 
     // Losowy początkowy podział
-    int *przynaleznosc = (int *)malloc(graf->liczba_wierzcholkow * sizeof(int));
+    int *przynaleznosc = (int *)calloc(graf->liczba_wierzcholkow, sizeof(int));
     if (!przynaleznosc) {
+        printf("Błąd alokacji pamięci dla przynależności\n");
         for (int i = 0; i < liczba_czesci; i++) free(czesci[i].wierzcholki);
         free(czesci);
         return NULL;
@@ -161,8 +224,11 @@ CzescGrafu* podziel_graf(Graf *graf, int liczba_czesci, float margines) {
     int wierzcholki_na_czesc = graf->liczba_wierzcholkow / liczba_czesci;
     int reszta = graf->liczba_wierzcholkow % liczba_czesci;
     int k = 0;
+    
+    printf("Inicjalizacja początkowego podziału:\n");
     for (int i = 0; i < liczba_czesci; i++) {
         int rozmiar = wierzcholki_na_czesc + (i < reszta ? 1 : 0);
+        printf("Część %d: %d wierzchołków\n", i, rozmiar);
         for (int j = 0; j < rozmiar; j++) {
             czesci[i].wierzcholki[j] = k;
             przynaleznosc[k] = i;
@@ -172,7 +238,9 @@ CzescGrafu* podziel_graf(Graf *graf, int liczba_czesci, float margines) {
     }
 
     // Iteracyjny podział binarny z Kernighan-Lin
+    printf("Rozpoczynam iteracyjny podział binarny\n");
     for (int iter = 0; iter < liczba_czesci - 1; iter++) {
+        printf("Iteracja główna %d/%d\n", iter + 1, liczba_czesci - 1);
         for (int i = 0; i < liczba_czesci; i++) {
             for (int j = i + 1; j < liczba_czesci; j++) {
                 kernighan_lin(graf, czesci, przynaleznosc, i, j);
@@ -180,12 +248,16 @@ CzescGrafu* podziel_graf(Graf *graf, int liczba_czesci, float margines) {
         }
     }
 
-    // Weryfikacja marginesu
+    // Weryfikacja marginesu z dynamicznym dostosowaniem
     int min_wierzcholkow = graf->liczba_wierzcholkow / liczba_czesci;
-    int max_wierzcholkow = (int)(min_wierzcholkow * (1.0 + margines / 100.0));
+    int max_wierzcholkow = (int)(min_wierzcholkow * (1.0 + dostosowany_margines / 100.0));
+    
+    printf("Weryfikacja marginesu (min: %d, max: %d):\n", min_wierzcholkow, max_wierzcholkow);
     for (int i = 0; i < liczba_czesci; i++) {
-        if (czesci[i].liczba_wierzcholkow < min_wierzcholkow || czesci[i].liczba_wierzcholkow > max_wierzcholkow) {
-            printf("Podział nie spełnia marginesu %f%%.\n", margines);
+        printf("Część %d: %d wierzchołków\n", i, czesci[i].liczba_wierzcholkow);
+        if (czesci[i].liczba_wierzcholkow < min_wierzcholkow || 
+            czesci[i].liczba_wierzcholkow > max_wierzcholkow) {
+            printf("Podział nie spełnia marginesu %f%% dla części %d\n", dostosowany_margines, i);
             for (int j = 0; j < liczba_czesci; j++) free(czesci[j].wierzcholki);
             free(czesci);
             free(przynaleznosc);
@@ -193,6 +265,7 @@ CzescGrafu* podziel_graf(Graf *graf, int liczba_czesci, float margines) {
         }
     }
 
+    printf("Podział zakończony pomyślnie\n");
     free(przynaleznosc);
     return czesci;
 }

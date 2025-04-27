@@ -1,10 +1,11 @@
 CC = gcc
 CFLAGS = -Wall -g -O2
+LDFLAGS = -z noexecstack
 OBJ = podzial_grafu.o graf.o wejscie_wyjscie.o podzial_algorytmy.o
 EXEC = podzial_grafu
 
 $(EXEC): $(OBJ)
-	$(CC) $(CFLAGS) -o $(EXEC) $(OBJ)
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $(EXEC) $(OBJ)
 
 podzial_grafu.o: podzial_grafu.c graf.h wejscie_wyjscie.h podzial_algorytmy.h
 	$(CC) $(CFLAGS) -c podzial_grafu.c
